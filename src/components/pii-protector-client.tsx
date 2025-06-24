@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { getPiiStyle, getPiiBadgeStyle } from '@/lib/pii-colors';
 import { Separator } from './ui/separator';
+import { cn } from '@/lib/utils';
 
 type PiiEntity = DetectPiiOutput['piiEntities'][0];
 
@@ -82,7 +83,7 @@ const HighlightedTextViewer = ({ text, entities }: { text: string, entities: Pii
   }, [text, entities]);
 
   return (
-    <pre className="text-sm whitespace-pre-wrap break-words font-sans">
+    <pre suppressHydrationWarning className="text-sm whitespace-pre-wrap break-words font-sans">
       {parts.map((part, i) => <span key={i}>{part}</span>)}
     </pre>
   );
@@ -218,6 +219,7 @@ export function PiiProtectorClient() {
             </div>
             <div className="flex-grow rounded-lg border bg-secondary/30 relative">
               <Textarea
+                suppressHydrationWarning
                 value={rawData}
                 onChange={(e) => setRawData(e.target.value)}
                 placeholder="Upload or paste your raw data here..."
@@ -325,7 +327,7 @@ export function PiiProtectorClient() {
                     </div>
                     <div className="flex-grow rounded-lg border bg-secondary/30 overflow-auto">
                       <pre className="text-sm p-4 font-mono">
-                        <code>{jsonSchema || 'No schema generated.'}</code>
+                        <code suppressHydrationWarning>{jsonSchema || 'No schema generated.'}</code>
                       </pre>
                     </div>
                   </div>
