@@ -69,17 +69,47 @@ const prompt = ai.definePrompt({
   name: 'detectPiiPrompt',
   input: {schema: DetectPiiInputSchema},
   output: {schema: DetectPiiOutputSchema},
-  prompt: `You are an expert system for detecting Personally Identifiable Information (PII).
-Your task is to analyze the provided text data and identify any instances of the specific PII types requested.
+  prompt: `You are a highly precise PII (Personally Identifiable Information) detection engine. Your single most important task is to analyze the provided text and return a JSON object containing every instance of the requested PII types.
 
-**CRITICAL INSTRUCTIONS:**
-1.  **Scan ONLY for these types:** You MUST ONLY find and report PII of the following types: {{#each piiTypesToScan}}'{{{this}}}'{{#unless @last}}, {{/unless}}{{/each}}.
-2.  **Strict Typing:** The \`type\` field in your output for each finding MUST EXACTLY match one of the strings from the list above. Do not invent new types or alter the casing. Use the singular form (e.g., "NAME", not "NAMES").
-3.  **Accurate Indexing:** The \`start\` and \`end\` character indices MUST correspond precisely to the location of the \`value\` in the original data. \`data.substring(start, end)\` MUST equal \`value\`. Be very careful with this.
-4.  **JSON Output:** Your entire output must be a single, valid JSON object that conforms to the required output schema, with a root key "piiEntities" containing an array of your findings. If you find no PII of the requested types, the "piiEntities" array MUST be empty.
+**Accuracy is paramount. You must follow these instructions exactly:**
 
-Data to analyze:
+1.  **Targeted Scan:** Scan the data *only* for these PII types: {{#each piiTypesToScan}}'{{{this}}}'{{#unless @last}}, {{/unless}}{{/each}}. Ignore all other potential PII.
+2.  **Exact Typing:** For each entity found, the \`type\` field in your JSON output MUST be an exact, case-sensitive match to one of the types from the list above. Do not use plurals or variations.
+3.  **PERFECT INDEXING (CRITICAL):** The \`start\` and \`end\` character indices are the most critical part of your output. They MUST be perfectly accurate.
+    *   \`data.substring(start, end)\` MUST equal the PII \`value\`.
+    *   Pay extremely close attention to spaces, commas, newlines (\`\\n\`), and all other characters. An off-by-one error is a failure.
+    *   Verify your indices before outputting them.
+4.  **Complete Analysis:** You MUST analyze the entire text provided, from the first character to the last. Do not stop early.
+5.  **JSON Format:** The output MUST be a single, valid JSON object matching the required schema. If no PII is found, return an object with an empty \`piiEntities\` array.
+
+**Example:**
+*Input Data:*
+\`name,email\\nAlice,alice@web.com\`
+
+*Correct JSON Output:*
+\`\`\`json
+{
+  "piiEntities": [
+    {
+      "type": "NAME",
+      "value": "Alice",
+      "start": 12,
+      "end": 17,
+      "confidence": "high"
+    },
+    {
+      "type": "EMAIL",
+      "value": "alice@web.com",
+      "start": 18,
+      "end": 31,
+      "confidence": "high"
+    }
+  ]
+}
 \`\`\`
+
+**Now, analyze the following data and provide the JSON output:**
+\`\`\`text
 {{{data}}}
 \`\`\`
 `,
@@ -100,6 +130,19 @@ const detectPiiFlow = ai.defineFlow(
 
     const processedEntities = output.piiEntities
       .map((entity) => {
+        // Basic sanity check for presence of required fields.
+        if (!entity.value || entity.start == null || entity.end == null || entity.end <= entity.start) {
+            return null;
+        }
+        
+        // **CRITICAL** Verify that the model's indices actually match the value.
+        // This prevents the "highlighting wrong text" issue by discarding bad data from the AI.
+        if (input.data.substring(entity.start, entity.end) !== entity.value) {
+            // The model made a mistake with the indices. Discard this entity.
+            console.warn(`Discarding entity due to index mismatch: expected "${input.data.substring(entity.start, entity.end)}", got "${entity.value}"`);
+            return null;
+        }
+
         let normalizedType = entity.type.toUpperCase().replace('PII_', '').trim();
         // Apply corrections for common model mistakes (e.g., plurals)
         normalizedType = PII_TYPE_CORRECTIONS[normalizedType] || normalizedType;
@@ -109,14 +152,10 @@ const detectPiiFlow = ai.defineFlow(
           return null;
         }
 
-        // Final sanity check on the entity
-        if (entity.value != null && entity.start >= 0 && entity.end > entity.start) {
-            return {
-              ...entity,
-              type: normalizedType,
-            };
-        }
-        return null;
+        return {
+          ...entity,
+          type: normalizedType,
+        };
       })
       .filter((entity): entity is z.infer<typeof PiiEntitySchema> => entity !== null);
 
