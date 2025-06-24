@@ -134,14 +134,6 @@ const detectPiiFlow = ai.defineFlow(
         if (!entity.value || entity.start == null || entity.end == null || entity.end <= entity.start) {
             return null;
         }
-        
-        // **CRITICAL** Verify that the model's indices actually match the value.
-        // This prevents the "highlighting wrong text" issue by discarding bad data from the AI.
-        if (input.data.substring(entity.start, entity.end) !== entity.value) {
-            // The model made a mistake with the indices. Discard this entity.
-            console.warn(`Discarding entity due to index mismatch: expected "${input.data.substring(entity.start, entity.end)}", got "${entity.value}"`);
-            return null;
-        }
 
         let normalizedType = entity.type.toUpperCase().replace('PII_', '').trim();
         // Apply corrections for common model mistakes (e.g., plurals)
