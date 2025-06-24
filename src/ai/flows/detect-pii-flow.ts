@@ -33,6 +33,28 @@ const DetectPiiOutputSchema = z.object({
 });
 export type DetectPiiOutput = z.infer<typeof DetectPiiOutputSchema>;
 
+// A mapping to correct common AI model inconsistencies for PII types.
+const PII_TYPE_CORRECTIONS: { [key: string]: string } = {
+  'EMAILS': 'EMAIL',
+  'EMAIL_ADDRESS': 'EMAIL',
+  'EMAIL ADDRESS': 'EMAIL',
+  'NAMES': 'NAME',
+  'PERSON_NAME': 'NAME',
+  'PERSON NAME': 'NAME',
+  'PHONE_NUMBER': 'PHONE',
+  'PHONE NUMBER': 'PHONE',
+  'PHONES': 'PHONE',
+  'ADDRESSES': 'ADDRESS',
+  'ADDRESSS': 'ADDRESS', // Correction for observed error
+  'DOBS': 'DOB',
+  'DATE_OF_BIRTH': 'DOB',
+  'SSNS': 'SSN',
+  'SOCIAL_SECURITY_NUMBER': 'SSN',
+  'PASSPORTS': 'PASSPORT',
+  'AADHAARS': 'AADHAAR',
+  'PANS': 'PAN',
+};
+
 export async function detectPii(input: DetectPiiInput): Promise<DetectPiiOutput> {
   // If no PII types are selected, return an empty result.
   if (input.piiTypesToScan.length === 0) {
@@ -52,7 +74,7 @@ Your task is to analyze the provided text data and identify any instances of the
 
 **CRITICAL INSTRUCTIONS:**
 1.  **Scan ONLY for these types:** You MUST ONLY find and report PII of the following types: {{#each piiTypesToScan}}'{{{this}}}'{{#unless @last}}, {{/unless}}{{/each}}.
-2.  **Strict Typing:** The \`type\` field in your output for each finding MUST EXACTLY match one of the strings from the list above. Do not invent new types or alter the casing.
+2.  **Strict Typing:** The \`type\` field in your output for each finding MUST EXACTLY match one of the strings from the list above. Do not invent new types or alter the casing. Use the singular form (e.g., "NAME", not "NAMES").
 3.  **Accurate Indexing:** The \`start\` and \`end\` character indices MUST correspond precisely to the location of the \`value\` in the original data. \`data.substring(start, end)\` MUST equal \`value\`. Be very careful with this.
 4.  **JSON Output:** Your entire output must be a single, valid JSON object that conforms to the required output schema, with a root key "piiEntities" containing an array of your findings. If you find no PII of the requested types, the "piiEntities" array MUST be empty.
 
@@ -76,17 +98,27 @@ const detectPiiFlow = ai.defineFlow(
       return { piiEntities: [] };
     }
 
-    // The prompt is now much stricter, but we'll still normalize the type as a final safeguard.
-    // We trust the model to only return the requested types, as per the prompt.
     const processedEntities = output.piiEntities
-      .map((entity) => ({
-        ...entity,
-        type: entity.type.toUpperCase().replace('PII_', '').trim(),
-      }))
-      .filter(
-        (entity) =>
-          entity.value != null && entity.start >= 0 && entity.end > entity.start
-      ); // Basic sanity checks
+      .map((entity) => {
+        let normalizedType = entity.type.toUpperCase().replace('PII_', '').trim();
+        // Apply corrections for common model mistakes (e.g., plurals)
+        normalizedType = PII_TYPE_CORRECTIONS[normalizedType] || normalizedType;
+
+        // Only include entities that are in the requested scan types
+        if (!input.piiTypesToScan.includes(normalizedType)) {
+          return null;
+        }
+
+        // Final sanity check on the entity
+        if (entity.value != null && entity.start >= 0 && entity.end > entity.start) {
+            return {
+              ...entity,
+              type: normalizedType,
+            };
+        }
+        return null;
+      })
+      .filter((entity): entity is z.infer<typeof PiiEntitySchema> => entity !== null);
 
     return {
       piiEntities: processedEntities,
