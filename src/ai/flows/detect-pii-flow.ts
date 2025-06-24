@@ -157,36 +157,15 @@ const detectPiiFlow = ai.defineFlow(
 
     const processedEntities = output.piiEntities
       .map((entity) => {
-        // Basic sanity check for presence of required fields.
         if (!entity.value || entity.start == null || entity.end == null || entity.end <= entity.start) {
             return null;
         }
 
         let normalizedType = entity.type.toUpperCase().replace('PII_', '').trim();
-        // Apply corrections for common model mistakes (e.g., plurals)
         normalizedType = PII_TYPE_CORRECTIONS[normalizedType] || normalizedType;
 
-        // Only include entities that are in the requested scan types
         if (!input.piiTypesToScan.includes(normalizedType)) {
           return null;
-        }
-
-        // A final validation to ensure the returned indices are plausible for the value.
-        // This prevents crashes from completely incorrect indices.
-        if (input.data.substring(entity.start, entity.end) !== entity.value) {
-            // The model can be off by a few characters (quotes, spaces) with JSON.
-            // A more advanced fix would be to search for entity.value near entity.start,
-            // but for now, we will trust the model's value and indices if they are close.
-            // A simple check is to see if the value is contained within a slightly larger substring.
-            const substringWithPadding = input.data.substring(Math.max(0, entity.start - 2), Math.min(input.data.length, entity.end + 2));
-            if (!substringWithPadding.includes(entity.value)) {
-                console.warn('AI returned mismatched index for PII entity. Discarding.', {
-                    expected: entity.value,
-                    found: input.data.substring(entity.start, entity.end),
-                    entity,
-                });
-                return null;
-            }
         }
         
         return {
