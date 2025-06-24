@@ -63,10 +63,11 @@ const HighlightedTextViewer = ({ text, entities }: { text: string, entities: Pii
       if (entity.start < lastIndex || entity.end > text.length || entity.start >= entity.end) {
         return; 
       }
-      // Check if the substring matches the value. If not, the index is wrong.
-      if (text.substring(entity.start, entity.end) !== entity.value) {
-        return;
-      }
+      // The strict check `text.substring(entity.start, entity.end) !== entity.value` is removed.
+      // With complex data like JSON, the AI model's indices can be slightly off (e.g., including quotes).
+      // It's a better user experience to show a slightly imperfect highlight than to show nothing at all.
+      // The backend flow now does a more lenient validation.
+      
       if (entity.start > lastIndex) {
         result.push(text.substring(lastIndex, entity.start));
       }

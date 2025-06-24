@@ -81,8 +81,9 @@ const prompt = ai.definePrompt({
     *   Verify your indices before outputting them.
 4.  **Complete Analysis:** You MUST analyze the entire text provided, from the first character to the last. Do not stop early.
 5.  **JSON Format:** The output MUST be a single, valid JSON object matching the required schema. If no PII is found, return an object with an empty \`piiEntities\` array.
+6.  **JSON Data Handling:** If the input data is in JSON format, be extra careful. The \`start\` and \`end\` indices must correspond to the position within the raw JSON string, including all quotes, spaces, and newlines. The \`value\` should be the raw string value, *without* the surrounding quotes.
 
-**Example:**
+**Example (CSV Input):**
 *Input Data:*
 \`name,email\\nAlice,alice@web.com\`
 
@@ -102,6 +103,32 @@ const prompt = ai.definePrompt({
       "value": "alice@web.com",
       "start": 18,
       "end": 31,
+      "confidence": "high"
+    }
+  ]
+}
+\`\`\`
+
+**Example (JSON Input):**
+*Input Data:*
+\`{\\n  "name": "Bob Smith",\\n  "contact": "bob@test.com"\\n}\`
+
+*Correct JSON Output:*
+\`\`\`json
+{
+  "piiEntities": [
+    {
+      "type": "NAME",
+      "value": "Bob Smith",
+      "start": 12,
+      "end": 21,
+      "confidence": "high"
+    },
+    {
+      "type": "EMAIL",
+      "value": "bob@test.com",
+      "start": 37,
+      "end": 49,
       "confidence": "high"
     }
   ]
@@ -144,6 +171,24 @@ const detectPiiFlow = ai.defineFlow(
           return null;
         }
 
+        // A final validation to ensure the returned indices are plausible for the value.
+        // This prevents crashes from completely incorrect indices.
+        if (input.data.substring(entity.start, entity.end) !== entity.value) {
+            // The model can be off by a few characters (quotes, spaces) with JSON.
+            // A more advanced fix would be to search for entity.value near entity.start,
+            // but for now, we will trust the model's value and indices if they are close.
+            // A simple check is to see if the value is contained within a slightly larger substring.
+            const substringWithPadding = input.data.substring(Math.max(0, entity.start - 2), Math.min(input.data.length, entity.end + 2));
+            if (!substringWithPadding.includes(entity.value)) {
+                console.warn('AI returned mismatched index for PII entity. Discarding.', {
+                    expected: entity.value,
+                    found: input.data.substring(entity.start, entity.end),
+                    entity,
+                });
+                return null;
+            }
+        }
+        
         return {
           ...entity,
           type: normalizedType,
