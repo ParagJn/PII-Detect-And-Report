@@ -190,6 +190,22 @@ export function PiiProtectorClient() {
     }, {} as Record<string, number>);
   }, [piiResults]);
   
+  const piiSummaryString = useMemo(() => {
+    if (!piiResults) return ""; // Don't show anything if we haven't scanned yet
+    const counts = piiSummaryCounts;
+    const numTypes = Object.keys(counts).length;
+
+    if (numTypes === 0) {
+      return "No PII was detected for the selected attributes.";
+    }
+
+    const summaryParts = Object.entries(counts).map(([type, count]) => 
+      `${count} ${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}${count > 1 ? 's' : ''}`
+    );
+    
+    return `Detected: ${summaryParts.join(', ')}.`;
+  }, [piiSummaryCounts, piiResults]);
+
   const downloadJsonSchema = () => {
     const blob = new Blob([jsonSchema], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -319,7 +335,7 @@ export function PiiProtectorClient() {
                   <div className="flex flex-col gap-4 flex-grow h-full">
                     <div>
                       <h3 className="font-semibold mb-2">Summary</h3>
-                      <p className="text-sm text-muted-foreground">{piiResults.summary}</p>
+                      <p className="text-sm text-muted-foreground">{piiSummaryString}</p>
                     </div>
                     {Object.keys(piiSummaryCounts).length > 0 && (
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">

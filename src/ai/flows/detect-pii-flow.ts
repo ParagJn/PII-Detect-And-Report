@@ -27,9 +27,9 @@ const PiiEntitySchema = z.object({
     confidence: z.string().describe('The confidence level of the PII detection (e.g., high, medium, or low).'),
 });
 
+// The output schema is now just an array of PII entities. The client will handle summarization.
 const DetectPiiOutputSchema = z.object({
   piiEntities: z.array(PiiEntitySchema).describe('An array of PII entities detected in the input data.'),
-  summary: z.string().describe('A summary of the PII detected, including the number of each type of PII entity.'),
 });
 export type DetectPiiOutput = z.infer<typeof DetectPiiOutputSchema>;
 
@@ -38,7 +38,6 @@ export async function detectPii(input: DetectPiiInput): Promise<DetectPiiOutput>
   if (input.piiTypesToScan.length === 0) {
     return {
         piiEntities: [],
-        summary: "No PII types were selected for scanning."
     };
   }
   return detectPiiFlow(input);
@@ -48,15 +47,21 @@ const prompt = ai.definePrompt({
   name: 'detectPiiPrompt',
   input: {schema: DetectPiiInputSchema},
   output: {schema: DetectPiiOutputSchema},
-  prompt: `You are an expert in detecting Personally Identifiable Information (PII) in data.
+  prompt: `You are an expert in detecting Personally Identifiable Information (PII) in data. Your task is to analyze the provided data and identify specific types of PII.
 
-You will be provided with a data string, and your task is to identify all PII entities within the data for the following types: {{#each piiTypesToScan}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}.
+You MUST ONLY scan for and report on the following PII types: {{#each piiTypesToScan}}'{{{this}}}'{{#unless @last}}, {{/unless}}{{/each}}. Do not detect any other types of PII.
 
-For each PII entity detected, provide the type of PII, the value, the starting and ending indices within the data string, and a confidence level (high, medium, or low). The 'type' must be one of the provided types to scan for.
+For each PII entity you find that matches the requested types, you must provide:
+1.  \`type\`: The type of PII detected. This MUST be one of the exact strings from the list provided above (e.g., 'EMAIL', 'NAME').
+2.  \`value\`: The exact PII value detected in the data.
+3.  \`start\`: The starting character index of the value in the input data.
+4.  \`end\`: The ending character index of the value in the input data.
+5.  \`confidence\`: Your confidence level for this detection (high, medium, or low).
 
-Also, provide a summary of the PII detected, including the number of each type of PII entity. If no PII is found, return an empty piiEntities array and a summary stating that no PII was found.
+The final output MUST be a single JSON object with a 'piiEntities' key, containing an array of the PII entity objects you detected. If no PII is found from the requested list, this array MUST be empty.
 
-Data: {{{data}}}
+Data to analyze:
+{{{data}}}
 
 Example Output:
 {
@@ -67,19 +72,10 @@ Example Output:
       "start": 10,
       "end": 25,
       "confidence": "high"
-    },
-    {
-      "type": "NAME",
-      "value": "John Doe",
-      "start": 0,
-      "end": 8,
-      "confidence": "medium"
     }
-  ],
-  "summary": "Detected 1 EMAIL and 1 NAME."
+  ]
 }
-
-Return a JSON object with the piiEntities array and the summary string."`,
+`,
 });
 
 const detectPiiFlow = ai.defineFlow(
@@ -90,28 +86,31 @@ const detectPiiFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    if (!output) {
+
+    if (!output || !output.piiEntities) {
       return {
         piiEntities: [],
-        summary: 'No PII was detected in the provided data.',
       };
     }
-    // The model can be inconsistent and return 'PII_EMAIL' instead of 'EMAIL'.
-    // We normalize the type before filtering to ensure all entities are processed correctly.
+    
+    // Perform robust normalization and filtering to ensure consistency and correctness.
     const processedEntities = output.piiEntities
       .map((entity) => {
-        const normalizedType = entity.type.startsWith('PII_')
-          ? entity.type.substring(4)
-          : entity.type;
+        // Normalize the type returned by the model to match our expected format.
+        const normalizedType = entity.type.toUpperCase().replace('PII_', '').trim();
         return { ...entity, type: normalizedType };
       })
       .filter(
         (entity) =>
-          input.piiTypesToScan.includes(entity.type) && entity.value != null
+          // Only include entities that were requested by the user.
+          input.piiTypesToScan.includes(entity.type) && 
+          entity.value != null &&
+          // Basic sanity check for indices
+          entity.start >= 0 &&
+          entity.end > entity.start
       );
 
     return {
-      ...output,
       piiEntities: processedEntities,
     };
   }
