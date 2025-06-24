@@ -59,6 +59,10 @@ const HighlightedTextViewer = ({ text, entities }: { text: string, entities: Pii
     let lastIndex = 0;
 
     sortedEntities.forEach((entity, index) => {
+      // This is a sanity check to prevent rendering issues with overlapping or invalid indices.
+      if (entity.start < lastIndex || entity.end > text.length || entity.start >= entity.end) {
+        return; 
+      }
       if (entity.start > lastIndex) {
         result.push(text.substring(lastIndex, entity.start));
       }
@@ -232,7 +236,7 @@ export function PiiProtectorClient() {
       </header>
       <main className="flex-grow p-4 md:p-6 lg:p-8 grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Left Panel */}
-        <Card className="flex flex-col shadow-md border-t-4 border-primary overflow-hidden">
+        <Card className="flex flex-col shadow-md border-t-4 border-destructive overflow-hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="w-6 h-6" />
