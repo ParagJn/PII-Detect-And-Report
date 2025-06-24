@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { detectPii, type DetectPiiOutput } from '@/ai/flows/detect-pii-flow';
 import { generatePiiSchema } from '@/ai/flows/generate-pii-schema-flow';
 import { explainPiiDetection } from '@/ai/flows/explain-pii-detection-flow';
+import { extractPdfFields } from '@/ai/flows/extract-pdf-fields-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, FileUp, ShieldCheck, FileText, ChevronRight, Download } from 'lucide-react';
+import { AlertCircle, FileUp, ShieldCheck, FileText, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { getPiiStyle, getPiiBadgeStyle } from '@/lib/pii-colors';
@@ -62,6 +63,10 @@ const HighlightedTextViewer = ({ text, entities }: { text: string, entities: Pii
       if (entity.start < lastIndex || entity.end > text.length || entity.start >= entity.end) {
         return; 
       }
+      // Check if the substring matches the value. If not, the index is wrong.
+      if (text.substring(entity.start, entity.end) !== entity.value) {
+        return;
+      }
       if (entity.start > lastIndex) {
         result.push(text.substring(lastIndex, entity.start));
       }
@@ -103,6 +108,7 @@ export function PiiProtectorClient() {
   const [piiResults, setPiiResults] = useState<DetectPiiOutput | null>(null);
   const [jsonSchema, setJsonSchema] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isProcessingPdf, setIsProcessingPdf] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [selectedPiiTypes, setSelectedPiiTypes] = useState<string[]>(PII_TYPES);
 
@@ -129,15 +135,46 @@ export function PiiProtectorClient() {
       setJsonSchema('');
       setFileName(file.name);
       
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        setRawData(text);
-      };
-      reader.onerror = () => {
-        setError('Failed to read the file.');
-      };
-      reader.readAsText(file);
+      if (file.type === 'application/pdf') {
+        setIsProcessingPdf(true);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const pdfDataUri = e.target?.result as string;
+            const result = await extractPdfFields({ pdfDataUri });
+            // The AI returns a JSON string inside a JSON object.
+            // We parse it, then stringify it again with pretty printing for display.
+            const parsedJson = JSON.parse(result.jsonData);
+            setRawData(JSON.stringify(parsedJson, null, 2));
+          } catch (err) {
+            console.error(err);
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+            setError(`Failed to extract data from PDF. ${errorMessage}`);
+            toast({
+              variant: "destructive",
+              title: "PDF Processing Failed",
+              description: errorMessage,
+            });
+          } finally {
+            setIsProcessingPdf(false);
+          }
+        };
+        reader.onerror = () => {
+          setError('Failed to read the file.');
+          setIsProcessingPdf(false);
+        };
+        reader.readAsDataURL(file); // Read as data URI for the AI flow
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target?.result as string;
+          setRawData(text);
+        };
+        reader.onerror = () => {
+          setError('Failed to read the file.');
+        };
+        reader.readAsText(file);
+      }
     }
   };
 
@@ -221,6 +258,8 @@ export function PiiProtectorClient() {
     URL.revokeObjectURL(url);
   };
 
+  const isLoadingState = isLoading || isProcessingPdf;
+
   return (
     <div className="flex flex-col h-full bg-secondary/50 font-sans">
       <header className="flex items-center justify-between p-4 bg-card border-b">
@@ -241,14 +280,15 @@ export function PiiProtectorClient() {
               <FileText className="w-6 h-6" />
               Data Source
             </CardTitle>
-            <CardDescription>Upload a file (.txt, .csv, .json) and select PII to scan for.</CardDescription>
+            <CardDescription>Upload a file (.txt, .csv, .json, .pdf) and select PII to scan for.</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
             <div className="flex items-center gap-2">
-              <Input id="file-upload" type="file" onChange={handleFileChange} accept=".txt,.csv,.json" className="flex-grow" disabled={isLoading} />
-              <Button onClick={handleScan} disabled={!rawData || isLoading} className="shrink-0">
-                {isLoading ? 'Scanning...' : 'Scan Data'}
-                {!isLoading && <ChevronRight className="w-4 h-4 ml-2" />}
+              <Input id="file-upload" type="file" onChange={handleFileChange} accept=".txt,.csv,.json,.pdf" className="flex-grow" disabled={isLoadingState} />
+              <Button onClick={handleScan} disabled={!rawData || isLoadingState} className="shrink-0">
+                {isLoading ? 'Scanning...' : isProcessingPdf ? 'Processing...' : 'Scan Data'}
+                {!isLoadingState && <ChevronRight className="w-4 h-4 ml-2" />}
+                {isLoadingState && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
               </Button>
             </div>
             
@@ -261,7 +301,7 @@ export function PiiProtectorClient() {
                       id={`pii-${type}`}
                       checked={selectedPiiTypes.includes(type)}
                       onCheckedChange={(checked) => handlePiiTypeChange(type, !!checked)}
-                      disabled={isLoading}
+                      disabled={isLoadingState}
                     />
                     <Label htmlFor={`pii-${type}`} className="text-sm font-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                       {type}
@@ -278,9 +318,16 @@ export function PiiProtectorClient() {
                 onChange={(e) => setRawData(e.target.value)}
                 placeholder="Upload or paste your raw data here..."
                 className="w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                disabled={isLoading}
+                disabled={isLoadingState}
               />
-              {!rawData && !isLoading && (
+              {isProcessingPdf && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-muted-foreground bg-card/80 pointer-events-none">
+                  <Loader2 className="w-12 h-12 mb-4 animate-spin" />
+                  <h3 className="font-semibold text-lg">Extracting Data from PDF...</h3>
+                  <p className="text-sm">This may take a moment.</p>
+                </div>
+              )}
+              {!rawData && !isLoadingState && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-muted-foreground p-4 pointer-events-none">
                   <FileUp className="w-12 h-12 mb-4" />
                   <h3 className="font-semibold text-lg">Upload a File</h3>

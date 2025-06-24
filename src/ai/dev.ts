@@ -5,3 +5,4 @@ import '@/ai/flows/detect-pii-flow.ts';
 import '@/ai/flows/explain-pii-detection-flow.ts';
 import '@/ai/flows/summarize-pii-flow.ts';
 import '@/ai/flows/generate-pii-schema-flow.ts';
+import '@/ai/flows/extract-pdf-fields-flow.ts';
