@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'PII Protector',
+  title: 'PII Detect & Report',
   description: 'Detect PII in your data with AI',
 };
 
