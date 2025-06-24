@@ -15,6 +15,7 @@ const DetectPiiInputSchema = z.object({
   data: z
     .string()
     .describe("The data to scan for PII.  Can be structured (JSON, CSV) or unstructured (text)."),
+  piiTypesToScan: z.array(z.string()).describe('The types of PII to scan for.'),
 });
 export type DetectPiiInput = z.infer<typeof DetectPiiInputSchema>;
 
@@ -42,8 +43,7 @@ const prompt = ai.definePrompt({
   output: {schema: DetectPiiOutputSchema},
   prompt: `You are an expert in detecting Personally Identifiable Information (PII) in data.
 
-You will be provided with a data string, and your task is to identify all PII entities within the data.
-PII includes, but is not limited to: names, phone numbers, email addresses, physical addresses, Social Security numbers (SSNs), Aadhaar numbers, PAN numbers, passport numbers, and dates of birth.
+You will be provided with a data string, and your task is to identify all PII entities within the data for the following types: {{#each piiTypesToScan}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}.
 
 For each PII entity detected, provide the type of PII, the value, the starting and ending indices within the data string, and a confidence level (high, medium, or low).
 

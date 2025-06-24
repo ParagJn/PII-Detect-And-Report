@@ -18,8 +18,12 @@ import { useToast } from '@/hooks/use-toast';
 import { getPiiStyle, getPiiBadgeStyle } from '@/lib/pii-colors';
 import { Separator } from './ui/separator';
 import { cn } from '@/lib/utils';
+import { Checkbox } from './ui/checkbox';
+import { Label } from './ui/label';
 
 type PiiEntity = DetectPiiOutput['piiEntities'][0];
+
+const PII_TYPES = ['EMAIL', 'NAME', 'SSN', 'PHONE', 'ADDRESS', 'PASSPORT', 'DOB', 'AADHAAR', 'PAN'];
 
 const PiiExplanation = ({ text }: { text: string }) => {
   const [explanation, setExplanation] = useState('');
@@ -97,8 +101,15 @@ export function PiiProtectorClient() {
   const [jsonSchema, setJsonSchema] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [selectedPiiTypes, setSelectedPiiTypes] = useState<string[]>(PII_TYPES);
 
   const { toast } = useToast();
+
+  const handlePiiTypeChange = (type: string, checked: boolean) => {
+    setSelectedPiiTypes(prev =>
+      checked ? [...prev, type] : prev.filter(t => t !== type)
+    );
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -132,6 +143,10 @@ export function PiiProtectorClient() {
       setError('No data to scan. Please upload a file.');
       return;
     }
+    if (selectedPiiTypes.length === 0) {
+      setError('Please select at least one PII attribute to scan for.');
+      return;
+    }
     setIsLoading(true);
     setError('');
     setPiiResults(null);
@@ -139,7 +154,7 @@ export function PiiProtectorClient() {
 
     try {
       const [piiDetectionResult, schemaGenerationResult] = await Promise.all([
-        detectPii({ data: rawData }),
+        detectPii({ data: rawData, piiTypesToScan: selectedPiiTypes }),
         generatePiiSchema({ data: rawData }),
       ]);
       
@@ -207,7 +222,7 @@ export function PiiProtectorClient() {
               <FileText className="w-6 h-6" />
               Data Source
             </CardTitle>
-            <CardDescription>Upload a file (.txt, .csv, .json) to be scanned for PII.</CardDescription>
+            <CardDescription>Upload a file (.txt, .csv, .json) and select PII to scan for.</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
             <div className="flex items-center gap-2">
@@ -217,6 +232,26 @@ export function PiiProtectorClient() {
                 {!isLoading && <ChevronRight className="w-4 h-4 ml-2" />}
               </Button>
             </div>
+            
+            <div className="rounded-lg border p-4 space-y-3 bg-secondary/30">
+              <h3 className="text-sm font-semibold text-foreground">PII Attributes to Scan for</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
+                {PII_TYPES.map(type => (
+                  <div key={type} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`pii-${type}`}
+                      checked={selectedPiiTypes.includes(type)}
+                      onCheckedChange={(checked) => handlePiiTypeChange(type, !!checked)}
+                      disabled={isLoading}
+                    />
+                    <Label htmlFor={`pii-${type}`} className="text-sm font-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      {type}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex-grow rounded-lg border bg-secondary/30 relative">
               <Textarea
                 suppressHydrationWarning
