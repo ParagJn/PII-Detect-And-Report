@@ -16,10 +16,8 @@ const defaultStyle = 'bg-accent text-accent-foreground';
 
 const getPiiClass = (type: string): string => {
     const upperType = type.toUpperCase();
-    // Find a key that is a substring of the type. Prioritize longer keys for more specific matches.
-    const sortedKeys = Object.keys(piiTypeToStyleMap).sort((a, b) => b.length - a.length);
-    const foundKey = sortedKeys.find(key => upperType.includes(key));
-    return foundKey ? piiTypeToStyleMap[foundKey] : defaultStyle;
+    // Use a direct lookup for efficiency and correctness.
+    return piiTypeToStyleMap[upperType] || defaultStyle;
 }
 
 export const getPiiStyle = (type: string): string => {
