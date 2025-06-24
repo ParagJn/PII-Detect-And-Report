@@ -88,23 +88,31 @@ const detectPiiFlow = ai.defineFlow(
     inputSchema: DetectPiiInputSchema,
     outputSchema: DetectPiiOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async (input) => {
+    const { output } = await prompt(input);
     if (!output) {
-        return {
-            piiEntities: [],
-            summary: "No PII was detected in the provided data."
-        }
+      return {
+        piiEntities: [],
+        summary: 'No PII was detected in the provided data.',
+      };
     }
-    // Filter out entities that are not in the requested types, as a safeguard.
-    const filteredEntities = output.piiEntities.filter(entity => input.piiTypesToScan.includes(entity.type));
+    // The model can be inconsistent and return 'PII_EMAIL' instead of 'EMAIL'.
+    // We normalize the type before filtering to ensure all entities are processed correctly.
+    const processedEntities = output.piiEntities
+      .map((entity) => {
+        const normalizedType = entity.type.startsWith('PII_')
+          ? entity.type.substring(4)
+          : entity.type;
+        return { ...entity, type: normalizedType };
+      })
+      .filter(
+        (entity) =>
+          input.piiTypesToScan.includes(entity.type) && entity.value != null
+      );
 
-    // Also filter out any entities that have a null or undefined value.
-    const validEntities = filteredEntities.filter(entity => entity.value != null);
-    
     return {
-        ...output,
-        piiEntities: validEntities,
+      ...output,
+      piiEntities: processedEntities,
     };
   }
 );
