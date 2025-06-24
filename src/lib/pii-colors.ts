@@ -1,27 +1,31 @@
 import { cn } from "./utils";
 
 const piiTypeToStyleMap: Record<string, string> = {
-  EMAIL: 'bg-chart-1 text-blue-900',
-  NAME: 'bg-chart-2 text-green-900',
-  SSN: 'bg-destructive text-destructive-foreground',
-  PHONE: 'bg-chart-3 text-yellow-900',
-  ADDRESS: 'bg-chart-4 text-purple-900',
-  PASSPORT: 'bg-chart-5 text-pink-900',
-  DOB: 'bg-chart-3 text-orange-900',
-  'AADHAAR': 'bg-chart-2 text-lime-900',
-  'PAN': 'bg-chart-1 text-cyan-900',
+  EMAIL:    'bg-chart-1/70 text-foreground',
+  NAME:     'bg-chart-2/70 text-foreground',
+  SSN:      'bg-destructive/70 text-destructive-foreground',
+  PHONE:    'bg-chart-3/70 text-foreground',
+  ADDRESS:  'bg-chart-4/70 text-foreground',
+  PASSPORT: 'bg-chart-5/70 text-foreground',
+  DOB:      'bg-chart-3/70 text-foreground',
+  AADHAAR:  'bg-chart-2/70 text-foreground',
+  PAN:      'bg-chart-1/70 text-foreground',
 };
 
 const defaultStyle = 'bg-accent text-accent-foreground';
 
+const getPiiClass = (type: string): string => {
+    const upperType = type.toUpperCase();
+    // Find a key that is a substring of the type. Prioritize longer keys for more specific matches.
+    const sortedKeys = Object.keys(piiTypeToStyleMap).sort((a, b) => b.length - a.length);
+    const foundKey = sortedKeys.find(key => upperType.includes(key));
+    return foundKey ? piiTypeToStyleMap[foundKey] : defaultStyle;
+}
+
 export const getPiiStyle = (type: string): string => {
-  const upperType = type.toUpperCase();
-  const foundKey = Object.keys(piiTypeToStyleMap).find(key => upperType.includes(key));
-  return cn("px-1.5 py-0.5 rounded-md", foundKey ? piiTypeToStyleMap[foundKey] : defaultStyle);
+  return cn("px-1.5 py-0.5 rounded-md", getPiiClass(type));
 };
 
 export const getPiiBadgeStyle = (type: string): string => {
-  const upperType = type.toUpperCase();
-  const foundKey = Object.keys(piiTypeToStyleMap).find(key => upperType.includes(key));
-  return cn("border-transparent", foundKey ? piiTypeToStyleMap[foundKey] : defaultStyle);
+  return cn("border-transparent", getPiiClass(type));
 }

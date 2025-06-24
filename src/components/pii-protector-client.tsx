@@ -216,7 +216,7 @@ export function PiiProtectorClient() {
       </header>
       <main className="flex-grow p-4 md:p-6 lg:p-8 grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Left Panel */}
-        <Card className="flex flex-col shadow-md">
+        <Card className="flex flex-col shadow-md border-t-4 border-primary overflow-hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="w-6 h-6" />
@@ -276,7 +276,7 @@ export function PiiProtectorClient() {
         </Card>
         
         {/* Right Panel */}
-        <Card className="flex flex-col shadow-md">
+        <Card className="flex flex-col shadow-md border-t-4 border-chart-2 overflow-hidden">
            <Tabs defaultValue="results" className="flex-grow flex flex-col">
             <CardHeader>
               <div className="flex justify-between items-start">

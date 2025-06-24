@@ -19,21 +19,28 @@ const DetectPiiInputSchema = z.object({
 });
 export type DetectPiiInput = z.infer<typeof DetectPiiInputSchema>;
 
+const PiiEntitySchema = z.object({
+    type: z.string().describe('The type of PII detected (e.g., EMAIL, NAME, SSN). This must be one of the types from the `piiTypesToScan` input array.'),
+    value: z.string().describe('The actual PII value that was detected.'),
+    start: z.number().describe('The starting index of the PII value in the input data.'),
+    end: z.number().describe('The ending index of the PII value in the input data.'),
+    confidence: z.string().describe('The confidence level of the PII detection (e.g., high, medium, or low).'),
+});
+
 const DetectPiiOutputSchema = z.object({
-  piiEntities: z.array(
-    z.object({
-      type: z.string().describe('The type of PII detected (e.g., EMAIL, NAME, SSN).'),
-      value: z.string().describe('The actual PII value that was detected.'),
-      start: z.number().describe('The starting index of the PII value in the input data.'),
-      end: z.number().describe('The ending index of the PII value in the input data.'),
-      confidence: z.string().describe('The confidence level of the PII detection (e.g., high, medium, low).'),
-    })
-  ).describe('An array of PII entities detected in the input data.'),
+  piiEntities: z.array(PiiEntitySchema).describe('An array of PII entities detected in the input data.'),
   summary: z.string().describe('A summary of the PII detected, including the number of each type of PII entity.'),
 });
 export type DetectPiiOutput = z.infer<typeof DetectPiiOutputSchema>;
 
 export async function detectPii(input: DetectPiiInput): Promise<DetectPiiOutput> {
+  // If no PII types are selected, return an empty result.
+  if (input.piiTypesToScan.length === 0) {
+    return {
+        piiEntities: [],
+        summary: "No PII types were selected for scanning."
+    };
+  }
   return detectPiiFlow(input);
 }
 
@@ -45,9 +52,9 @@ const prompt = ai.definePrompt({
 
 You will be provided with a data string, and your task is to identify all PII entities within the data for the following types: {{#each piiTypesToScan}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}.
 
-For each PII entity detected, provide the type of PII, the value, the starting and ending indices within the data string, and a confidence level (high, medium, or low).
+For each PII entity detected, provide the type of PII, the value, the starting and ending indices within the data string, and a confidence level (high, medium, or low). The 'type' must be one of the provided types to scan for.
 
-Also, provide a summary of the PII detected, including the number of each type of PII entity.
+Also, provide a summary of the PII detected, including the number of each type of PII entity. If no PII is found, return an empty piiEntities array and a summary stating that no PII was found.
 
 Data: {{{data}}}
 
@@ -69,7 +76,7 @@ Example Output:
       "confidence": "medium"
     }
   ],
-  "summary": "1 EMAIL, 1 NAME"
+  "summary": "Detected 1 EMAIL and 1 NAME."
 }
 
 Return a JSON object with the piiEntities array and the summary string."`,
@@ -83,6 +90,21 @@ const detectPiiFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+        return {
+            piiEntities: [],
+            summary: "No PII was detected in the provided data."
+        }
+    }
+    // Filter out entities that are not in the requested types, as a safeguard.
+    const filteredEntities = output.piiEntities.filter(entity => input.piiTypesToScan.includes(entity.type));
+
+    // Also filter out any entities that have a null or undefined value.
+    const validEntities = filteredEntities.filter(entity => entity.value != null);
+    
+    return {
+        ...output,
+        piiEntities: validEntities,
+    };
   }
 );
