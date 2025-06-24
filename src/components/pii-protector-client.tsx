@@ -16,7 +16,7 @@ import { AlertCircle, FileUp, ShieldCheck, FileText, ChevronRight, Download } fr
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { getPiiStyle, getPiiBadgeStyle } from '@/lib/pii-colors';
-import { Separator } from './ui/separator';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
