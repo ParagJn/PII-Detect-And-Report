@@ -20,10 +20,9 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
+import PII_TYPES from '@/config/pii-attributes.json';
 
 type PiiEntity = DetectPiiOutput['piiEntities'][0];
-
-const PII_TYPES = ['EMAIL', 'NAME', 'SSN', 'PHONE', 'ADDRESS', 'PASSPORT', 'DOB', 'AADHAAR', 'PAN'];
 
 const PiiExplanation = ({ text }: { text: string }) => {
   const [explanation, setExplanation] = useState('');
