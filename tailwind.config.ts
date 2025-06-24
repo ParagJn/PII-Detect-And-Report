@@ -6,6 +6,21 @@ export default {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/lib/pii-colors.ts',
+  ],
+  safelist: [
+    {
+      pattern: /bg-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-(200|300)/,
+    },
+    {
+      pattern: /text-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-900/,
+    },
+    {
+      pattern: /dark:bg-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-(600|700|800)/,
+    },
+    {
+      pattern: /dark:text-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-100/,
+    },
   ],
   theme: {
     extend: {
