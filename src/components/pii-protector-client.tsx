@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, FileUp, ShieldCheck, FileText, Download, Loader2, UploadCloud, FileJson, FileType } from 'lucide-react';
+import { AlertCircle, FileUp, ShieldCheck, FileText, Download, Loader2, UploadCloud, FileJson, FileType, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { getPiiStyle, getPiiBadgeStyle } from '@/lib/pii-colors';
@@ -50,7 +50,7 @@ const PiiExplanation = ({ text }: { text: string }) => {
 
 const HighlightedTextViewer = ({ text, entities }: { text: string, entities: PiiEntity[] }) => {
   const parts = useMemo(() => {
-    if (!entities?.length) return [<pre className="text-sm whitespace-pre-wrap break-words font-mono">{text}</pre>];
+    if (!entities?.length) return [<span key="no-entities">{text}</span>];
 
     const sortedEntities = [...entities].sort((a, b) => a.start - b.start);
     const result: (string | JSX.Element)[] = [];
@@ -89,7 +89,7 @@ const HighlightedTextViewer = ({ text, entities }: { text: string, entities: Pii
   }, [text, entities]);
 
   return (
-    <pre suppressHydrationWarning className="text-sm whitespace-pre-wrap break-words font-mono bg-secondary/80 p-4 rounded-lg">
+    <pre suppressHydrationWarning className="text-sm whitespace-pre-wrap break-words font-mono p-4">
       {parts}
     </pre>
   );
@@ -443,7 +443,9 @@ export function PiiProtectorClient() {
 
                 <div>
                     <h3 className="font-semibold mb-3">Highlighted Data</h3>
-                    <HighlightedTextViewer text={rawData} entities={piiResults.piiEntities} />
+                    <div className="min-h-[400px] overflow-y-auto rounded-lg border bg-secondary/80">
+                        <HighlightedTextViewer text={rawData} entities={piiResults.piiEntities} />
+                    </div>
                 </div>
 
                 {jsonSchema && (
@@ -455,7 +457,7 @@ export function PiiProtectorClient() {
                              Download JSON
                            </Button>
                         </div>
-                        <div className="max-h-60 overflow-y-auto rounded-lg border bg-secondary/80">
+                        <div className="max-h-96 overflow-y-auto rounded-lg border bg-secondary/80">
                           <pre className="text-xs p-4 font-mono">
                             <code suppressHydrationWarning>{jsonSchema}</code>
                           </pre>
