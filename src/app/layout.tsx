@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'PII Detect & Report',
-  description: 'Detect PII in your data with AI',
+  title: 'PII Protector | AI-Powered Data Scanning',
+  description: 'Detect and protect sensitive Personally Identifiable Information in your data with AI.',
 };
 
 export default function RootLayout({
@@ -17,9 +17,9 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased h-full bg-background">
+      <body className="font-sans antialiased h-full bg-background">
         {children}
         <Toaster />
       </body>

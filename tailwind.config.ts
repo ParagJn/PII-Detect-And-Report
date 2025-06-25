@@ -10,17 +10,23 @@ export default {
   ],
   safelist: [
     {
-      pattern: /bg-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-(200|300)/,
+      pattern: /bg-(red|green|blue|yellow|gray)-(100)/,
     },
     {
-      pattern: /text-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-900/,
+      pattern: /text-(red|green|blue|yellow|gray)-(900)/,
     },
     {
-      pattern: /dark:bg-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-(600|700|800)/,
+      pattern: /border-(red|green|blue|yellow|gray)-(300)/,
     },
     {
-      pattern: /dark:text-(red|pink|green|teal|blue|sky|indigo|yellow|slate|gray)-100/,
+      pattern: /dark:bg-(red|green|blue|yellow|gray)-(800|900)\/50/,
     },
+    {
+      pattern: /dark:text-(red|green|blue|yellow|gray)-(200)/,
+    },
+    {
+      pattern: /dark:border-(red|green|blue|yellow|gray)-(600|700)/,
+    }
   ],
   theme: {
     extend: {
